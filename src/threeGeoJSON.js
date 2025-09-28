@@ -10,7 +10,9 @@ and draws the geoJSON geometries.
 
 */
 
-export function drawThreeGeo({ json, radius, materalOptions }) {
+export function drawThreeGeo({ json, radius, materialOptions, materalOptions }) {
+  // Support both correctly and incorrectly spelled option names
+  const options = materialOptions || materalOptions || {};
   const container = new THREE.Object3D();
   container.userData.update = (t) => {
     for (let i = 0; i < container.children.length; i++) {
@@ -30,12 +32,12 @@ export function drawThreeGeo({ json, radius, materalOptions }) {
   for (let geom_num = 0; geom_num < json_geom.length; geom_num++) {
     if (json_geom[geom_num].type == 'Point') {
       convertToSphereCoords(json_geom[geom_num].coordinates, radius);
-      drawParticle(x_values[0], y_values[0], z_values[0], materalOptions);
+      drawParticle(x_values[0], y_values[0], z_values[0], options);
 
     } else if (json_geom[geom_num].type == 'MultiPoint') {
       for (let point_num = 0; point_num < json_geom[geom_num].coordinates.length; point_num++) {
         convertToSphereCoords(json_geom[geom_num].coordinates[point_num], radius);
-        drawParticle(x_values[0], y_values[0], z_values[0], materalOptions);
+        drawParticle(x_values[0], y_values[0], z_values[0], options);
       }
 
     } else if (json_geom[geom_num].type == 'LineString') {
@@ -44,7 +46,7 @@ export function drawThreeGeo({ json, radius, materalOptions }) {
       for (let point_num = 0; point_num < coordinate_array.length; point_num++) {
         convertToSphereCoords(coordinate_array[point_num], radius);
       }
-      drawLine(x_values, y_values, z_values, materalOptions);
+      drawLine(x_values, y_values, z_values, options);
 
     } else if (json_geom[geom_num].type == 'Polygon') {
       for (let segment_num = 0; segment_num < json_geom[geom_num].coordinates.length; segment_num++) {
@@ -53,7 +55,7 @@ export function drawThreeGeo({ json, radius, materalOptions }) {
         for (let point_num = 0; point_num < coordinate_array.length; point_num++) {
           convertToSphereCoords(coordinate_array[point_num], radius);
         }
-        drawLine(x_values, y_values, z_values, materalOptions);
+        drawLine(x_values, y_values, z_values, options);
       }
 
     } else if (json_geom[geom_num].type == 'MultiLineString') {
@@ -63,7 +65,7 @@ export function drawThreeGeo({ json, radius, materalOptions }) {
         for (let point_num = 0; point_num < coordinate_array.length; point_num++) {
           convertToSphereCoords(coordinate_array[point_num], radius);
         }
-        drawLine(x_values, y_values, z_values, materalOptions);
+        drawLine(x_values, y_values, z_values, options);
       }
 
     } else if (json_geom[geom_num].type == 'MultiPolygon') {
@@ -74,7 +76,7 @@ export function drawThreeGeo({ json, radius, materalOptions }) {
           for (let point_num = 0; point_num < coordinate_array.length; point_num++) {
             convertToSphereCoords(coordinate_array[point_num], radius);
           }
-          drawLine(x_values, y_values, z_values, materalOptions);
+        drawLine(x_values, y_values, z_values, options);
         }
       }
     } else {
@@ -199,7 +201,7 @@ export function drawThreeGeo({ json, radius, materalOptions }) {
 
     const particle_material = new THREE.PointsMaterial(options);
 
-    const particle = new THREE.Points(particle_geom, particle_material);
+    const particle = new THREE.Points(geo, particle_material);
     container.add(particle);
 
     clearArrays();
@@ -212,16 +214,20 @@ export function drawThreeGeo({ json, radius, materalOptions }) {
       verts.push(x_values[i], y_values[i], z_values[i]);
     }
     lineGeo.setPositions(verts);
-    let hue = 0.3 + Math.random() * 0.2;
-    if (Math.random() > 0.5) {
-      hue -= 0.3;
-    }
-    const color = new THREE.Color().setHSL(hue, 1.0, 0.5);
+    const color = new THREE.Color(options.color !== undefined ? options.color : 0xaaaaaa);
     const lineMaterial = new LineMaterial({
       color,
-      linewidth: 2,
-      fog: true
+      linewidth: options.linewidth !== undefined ? options.linewidth : 1,
+      transparent: options.transparent !== undefined ? options.transparent : true,
+      opacity: options.opacity !== undefined ? options.opacity : 0.6,
+      fog: true,
     });
+    // Ensure proper sizing for wide lines
+    if (!lineMaterial.resolution) {
+      lineMaterial.resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
+    } else {
+      lineMaterial.resolution.set(window.innerWidth, window.innerHeight);
+    }
 
     const line = new Line2(lineGeo, lineMaterial);
     line.computeLineDistances();
