@@ -1,0 +1,38 @@
+{
+  "name": "terra-interactive-globe",
+  "version": "1.0.0",
+  "description": "An immersive, scroll-driven 3D Earth globe experience with Three.js and GSAP",
+  "type": "module",
+  "scripts": {
+    "dev": "npx -y http-server -p 8000 -c-1",
+    "start": "npx -y http-server -p 8000 -c-1",
+    "serve": "npx -y http-server -p 8000 -c-1"
+  },
+  "keywords": [
+    "threejs",
+    "webgl",
+    "3d",
+    "globe",
+    "earth",
+    "interactive",
+    "scroll-animation",
+    "gsap",
+    "geojson"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/3d-globe-with-threejs.git"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "cdn-dependencies": {
+    "three": "0.170",
+    "gsap": "3.12.5"
+  },
+  "browser": "index.html",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

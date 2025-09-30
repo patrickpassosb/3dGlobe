@@ -3,22 +3,757 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Three.js + GeoJSON</title>
+    <title>Terra • Interactive Earth Experience</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --color-bg: #000000;
+        --color-bg-secondary: #0a0a0f;
+        --color-primary: #66b3ff;
+        --color-accent: #9d84ff;
+        --color-text: #e8e8f0;
+        --color-text-dim: #8a8a9e;
+        --font-primary: 'Space Grotesk', sans-serif;
+        --font-secondary: 'Inter', sans-serif;
+      }
+
       body {
         margin: 0;
+        padding: 0;
+        font-family: var(--font-secondary);
+        background: var(--color-bg);
+        color: var(--color-text);
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* WebGL Canvas */
+      #webgl-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        z-index: 1;
+        pointer-events: auto;
+      }
+
+      /* Scroll Container */
+      #scroll-container {
+        position: relative;
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      section {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        pointer-events: none;
+      }
+
+      .content {
+        max-width: 1200px;
+        padding: 0 2rem;
+        pointer-events: auto;
+      }
+
+      /* Loading Screen */
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: linear-gradient(135deg, #000000 0%, #0a0a1f 100%);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.8s ease;
+      }
+
+      #loading-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loader {
+        width: 60px;
+        height: 60px;
+        border: 3px solid rgba(102, 179, 255, 0.1);
+        border-top: 3px solid var(--color-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .loading-text {
+        margin-top: 2rem;
+        font-family: var(--font-primary);
+        font-size: 1.2rem;
+        color: var(--color-text-dim);
+        letter-spacing: 2px;
+      }
+
+      /* Hero Section */
+      #hero {
+        height: 100vh;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .hero-content {
+        text-align: center;
+        z-index: 10;
+        opacity: 0;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      h1 {
+        font-family: var(--font-primary);
+        font-size: clamp(3rem, 8vw, 7rem);
+        font-weight: 700;
+        letter-spacing: -2px;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .tagline {
+        font-size: clamp(1rem, 2vw, 1.5rem);
+        color: var(--color-text-dim);
+        margin-bottom: 3rem;
+        font-weight: 300;
+        letter-spacing: 1px;
+      }
+
+      .cta-button {
+        display: inline-block;
+        padding: 1rem 2.5rem;
+        background: rgba(102, 179, 255, 0.1);
+        border: 2px solid var(--color-primary);
+        color: var(--color-primary);
+        text-decoration: none;
+        font-family: var(--font-primary);
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        border-radius: 50px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+      }
+
+      .cta-button:hover {
+        background: rgba(102, 179, 255, 0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(102, 179, 255, 0.3);
+      }
+
+      .scroll-indicator {
+        position: absolute;
+        bottom: 3rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        opacity: 0;
+        animation: fadeInBounce 2s ease 1.5s forwards;
+      }
+
+      @keyframes fadeInBounce {
+        0% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-20px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+
+      .scroll-text {
+        font-size: 0.8rem;
+        color: var(--color-text-dim);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      .scroll-arrow {
+        width: 24px;
+        height: 40px;
+        border: 2px solid var(--color-primary);
+        border-radius: 20px;
+        position: relative;
+      }
+
+      .scroll-arrow::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px;
+        height: 8px;
+        background: var(--color-primary);
+        border-radius: 2px;
+        animation: scrollDot 2s ease infinite;
+      }
+
+      @keyframes scrollDot {
+        0%, 100% { top: 8px; opacity: 1; }
+        50% { top: 20px; opacity: 0.5; }
+      }
+
+      /* Content Sections */
+      .section-title {
+        font-family: var(--font-primary);
+        font-size: clamp(2rem, 5vw, 4rem);
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        line-height: 1.2;
+      }
+
+      .section-text {
+        font-size: clamp(1rem, 2vw, 1.25rem);
+        line-height: 1.8;
+        color: var(--color-text-dim);
+        margin-bottom: 2rem;
+      }
+
+      .info-card {
+        background: rgba(10, 10, 31, 0.6);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(102, 179, 255, 0.2);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+      }
+
+      .info-card:hover {
+        border-color: rgba(102, 179, 255, 0.5);
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      }
+
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+        margin-top: 3rem;
+      }
+
+      .stat-item {
+        text-align: center;
+      }
+
+      .stat-number {
+        font-family: var(--font-primary);
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 700;
+        color: var(--color-primary);
+        margin-bottom: 0.5rem;
+      }
+
+      .stat-label {
+        font-size: 0.9rem;
+        color: var(--color-text-dim);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      /* Feature Cards */
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+        margin-top: 3rem;
+      }
+
+      .feature-card {
+        background: rgba(10, 10, 31, 0.4);
+        border: 1px solid rgba(102, 179, 255, 0.15);
+        border-radius: 15px;
+        padding: 2rem;
+        transition: all 0.3s ease;
+      }
+
+      .feature-card:hover {
+        border-color: var(--color-accent);
+        transform: translateY(-5px);
+      }
+
+      .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .feature-title {
+        font-family: var(--font-primary);
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+      }
+
+      .feature-description {
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: var(--color-text-dim);
+      }
+
+      /* Navigation */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 2rem;
+        z-index: 100;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: none;
+      }
+
+      .logo {
+        font-family: var(--font-primary);
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-text);
+        pointer-events: auto;
+        letter-spacing: -1px;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 2rem;
+        list-style: none;
+        pointer-events: auto;
+      }
+
+      .nav-links a {
+        color: var(--color-text-dim);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        letter-spacing: 1px;
+        transition: color 0.3s ease;
+        position: relative;
+      }
+
+      .nav-links a:hover {
+        color: var(--color-primary);
+      }
+
+      .nav-links a::after {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--color-primary);
+        transition: width 0.3s ease;
+      }
+
+      .nav-links a:hover::after {
+        width: 100%;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .nav-links {
+          display: none;
+        }
+
+        .content {
+          padding: 0 1.5rem;
+        }
+
+        .info-card {
+          padding: 1.5rem;
+        }
+
+        .stat-grid,
+        .feature-grid {
+          grid-template-columns: 1fr;
+        }
+
+        section {
+          padding: 4rem 0;
+        }
+
+        #webgl-canvas {
+          /* Reduce quality on mobile for performance */
+          image-rendering: optimizeSpeed;
+        }
+      }
+
+      /* Additional sections styling */
+      #about {
+        background: linear-gradient(180deg, transparent 0%, rgba(10, 10, 31, 0.3) 100%);
+      }
+
+      #features {
+        background: rgba(0, 0, 0, 0.3);
+      }
+
+      #data {
+        background: linear-gradient(180deg, rgba(10, 10, 31, 0.3) 0%, transparent 100%);
+      }
+
+      #explore {
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(10px);
+      }
+
+      /* Glow effects */
+      .glow {
+        text-shadow: 0 0 20px rgba(102, 179, 255, 0.5);
+      }
+
+      /* Animations utility */
+      .fade-in {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      .fade-in-left {
+        opacity: 0;
+        transform: translateX(-50px);
+      }
+
+      .fade-in-right {
+        opacity: 0;
+        transform: translateX(50px);
+      }
+
+      /* ==========================================
+         EXPLORE MODE - SMOOTH FADE OUT
+         ========================================== */
+      
+      /* Keep hero content visible initially with smooth transitions */
+      .hero-content {
+        transition: opacity 1.2s ease-out, transform 1.2s ease-out !important;
+        will-change: opacity, transform;
+      }
+      
+      .scroll-indicator {
+        transition: opacity 0.8s ease-out;
+      }
+      
+      /* Fade out hero content in explore mode */
+      body.explore-mode .hero-content {
+        opacity: 0 !important;
+        transform: translateY(-30px) !important;
+        pointer-events: none !important;
+      }
+      
+      /* Fade out scroll indicator */
+      body.explore-mode .scroll-indicator {
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      
+      /* Hide navigation and other sections */
+      body.explore-mode nav {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.8s ease-out;
+      }
+      
+      /* Hide all scroll sections */
+      body.explore-mode #scroll-container section:not(#hero) {
+        display: none;
+      }
+      
+      /* Bring globe to front */
+      body.explore-mode #webgl-canvas {
+        z-index: 10;
+      }
+      
+      /* Prevent scrolling */
+      body.explore-mode {
+        overflow: hidden;
+      }
+
+      /* Exit Explore Mode Button */
+      #exit-explore {
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        z-index: 100;
+        padding: 0.75rem 1.5rem;
+        background: rgba(10, 10, 31, 0.8);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--color-primary);
+        color: var(--color-primary);
+        font-family: var(--font-primary);
+        font-size: 0.9rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        border-radius: 50px;
+        cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s ease;
+      }
+
+      body.explore-mode #exit-explore {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      #exit-explore:hover {
+        background: rgba(10, 10, 31, 0.95);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102, 179, 255, 0.3);
+      }
+
+      /* Explore Mode Instructions */
+      #explore-instructions {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 100;
+        padding: 1rem 2rem;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(102, 179, 255, 0.2);
+        border-radius: 30px;
+        color: var(--color-text-dim);
+        font-size: 0.8rem;
+        text-align: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.8s ease;
+        font-family: var(--font-secondary);
+      }
+
+      body.explore-mode #explore-instructions {
+        opacity: 0.9;
+        animation: fadeOutInstructions 1.5s ease 4s forwards;
+      }
+
+      @keyframes fadeOutInstructions {
+        to {
+          opacity: 0;
+        }
+      }
+
+      #explore-instructions span {
+        display: inline-block;
+        margin: 0 0.3rem;
+        color: var(--color-primary);
+        font-weight: 600;
+        font-family: var(--font-primary);
+        font-size: 0.85rem;
       }
     </style>
-     <script type="importmap">
+
+    <script type="importmap">
       {
-				"imports": {
-					"three": "https://cdn.jsdelivr.net/npm/three@0.170/build/three.module.js",
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170/build/three.module.js",
           "jsm/": "https://cdn.jsdelivr.net/npm/three@0.170/examples/jsm/"
         }
-			}
+      }
     </script>
   </head>
   <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loader"></div>
+      <div class="loading-text">LOADING TERRA</div>
+    </div>
+
+    <!-- Explore Mode UI -->
+    <button id="exit-explore">EXIT EXPLORE MODE</button>
+    <div id="explore-instructions">
+      <span>DRAG</span> to rotate • <span>SCROLL</span> to zoom • <span>ESC</span> to exit
+    </div>
+
+    <!-- Navigation -->
+    <nav>
+      <div class="logo">TERRA</div>
+      <ul class="nav-links">
+        <li><a href="#hero">HOME</a></li>
+        <li><a href="#about">ABOUT</a></li>
+        <li><a href="#features">FEATURES</a></li>
+        <li><a href="#data">DATA</a></li>
+      </ul>
+    </nav>
+
+    <!-- WebGL Canvas (Fixed) -->
+    <div id="webgl-canvas"></div>
+
+    <!-- Scroll Container -->
+    <div id="scroll-container">
+      <!-- Hero Section -->
+      <section id="hero">
+        <div class="hero-content">
+          <h1>TERRA</h1>
+          <p class="tagline">An Interactive Journey Through Our Planet</p>
+          <button id="explore-button" class="cta-button">EXPLORE</button>
+        </div>
+        <div class="scroll-indicator">
+          <span class="scroll-text">Scroll</span>
+          <div class="scroll-arrow"></div>
+        </div>
+      </section>
+
+      <!-- About Section -->
+      <section id="about">
+        <div class="content fade-in">
+          <h2 class="section-title">Our Living Planet</h2>
+          <div class="info-card">
+            <p class="section-text">
+              Earth, the third planet from the Sun, is the only astronomical object known to harbor life. 
+              With 71% of its surface covered by water and an atmosphere rich in nitrogen and oxygen, 
+              our planet is a unique oasis in the cosmic desert.
+            </p>
+            <p class="section-text">
+              From the deepest ocean trenches to the highest mountain peaks, Earth's diverse landscapes 
+              are home to millions of species, each playing a vital role in the delicate balance of our 
+              biosphere.
+            </p>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-item fade-in">
+              <div class="stat-number">4.54B</div>
+              <div class="stat-label">Years Old</div>
+            </div>
+            <div class="stat-item fade-in">
+            <div class="stat-number">510M</div>
+              <div class="stat-label">km² Surface</div>
+            </div>
+            <div class="stat-item fade-in">
+              <div class="stat-number">8B+</div>
+              <div class="stat-label">Population</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Features Section -->
+      <section id="features">
+        <div class="content fade-in">
+          <h2 class="section-title">Interactive Features</h2>
+          <p class="section-text">
+            Explore Earth through cutting-edge 3D visualization and real-time data rendering.
+          </p>
+          <div class="feature-grid">
+            <div class="feature-card fade-in-left">
+              <div class="feature-icon">🌍</div>
+              <h3 class="feature-title">Real-Time Rendering</h3>
+              <p class="feature-description">
+                Experience Earth with photorealistic textures, dynamic lighting, and atmospheric effects 
+                powered by WebGL and Three.js.
+              </p>
+            </div>
+            <div class="feature-card fade-in">
+              <div class="feature-icon">🛰️</div>
+              <h3 class="feature-title">GeoJSON Mapping</h3>
+              <p class="feature-description">
+                Visualize countries, coastlines, and geographical features with accurate GeoJSON data 
+                overlays in 3D space.
+              </p>
+            </div>
+            <div class="feature-card fade-in-right">
+              <div class="feature-icon">✨</div>
+              <h3 class="feature-title">Interactive Controls</h3>
+              <p class="feature-description">
+                Rotate, zoom, and explore every corner of the globe with smooth, responsive controls 
+                and scroll-driven animations.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Data Section -->
+      <section id="data">
+        <div class="content fade-in">
+          <h2 class="section-title">Earth by the Numbers</h2>
+          <div class="info-card">
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="stat-number">12,742</div>
+                <div class="stat-label">km Diameter</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">29.2%</div>
+                <div class="stat-label">Land Surface</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">107,200</div>
+                <div class="stat-label">km/h Orbital Speed</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">1,670</div>
+                <div class="stat-label">km/h Rotation Speed</div>
+              </div>
+            </div>
+          </div>
+          <p class="section-text" style="margin-top: 2rem;">
+            These remarkable statistics remind us of the dynamic nature of our home planet. Every rotation 
+            brings a new day, every orbit completes a year, and through it all, Earth continues to sustain 
+            the incredible diversity of life that calls it home.
+          </p>
+        </div>
+      </section>
+
+      <!-- Explore Section -->
+      <section id="explore">
+        <div class="content fade-in">
+          <h2 class="section-title">Continue Exploring</h2>
+          <p class="section-text">
+            This is just the beginning of your journey. Interact with the globe above, discover new 
+            perspectives, and marvel at the beauty of our planet from space.
+          </p>
+          <div style="text-align: center; margin-top: 3rem;">
+            <a href="#hero" class="cta-button">BACK TO TOP</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer style="padding: 3rem 2rem; text-align: center; background: rgba(0, 0, 0, 0.8);">
+        <p style="color: var(--color-text-dim); font-size: 0.9rem;">
+          Built with Three.js, GSAP, and WebGL • 2025
+        </p>
+      </footer>
+    </div>
+
+    <!-- GSAP for scroll animations -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+    
     <script type="module" src="index.js"></script>
   </body>
 </html>
